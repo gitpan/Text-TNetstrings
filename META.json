@@ -1,0 +1,48 @@
+{
+   "abstract" : "Data serialization using typed netstrings.",
+   "author" : [
+      "unknown"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110440",
+   "license" : [
+      "mit"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Text-TNetstrings",
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::More" : 0
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Module::Build" : 0,
+            "version" : 0
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "perl" : "5.006",
+            "version" : 0
+         }
+      }
+   },
+   "provides" : {
+      "Text::TNetstrings" : {
+         "file" : "lib/Text/TNetstrings.pm",
+         "version" : "v1.0.0"
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://opensource.org/licenses/mit-license.php"
+      ]
+   },
+   "version" : "v1.0.0"
+}
