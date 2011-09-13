@@ -3,7 +3,6 @@ package Text::TNetstrings;
 use 5.010;
 use strict;
 use warnings;
-use feature 'switch';
 use Carp qw(croak);
 use base qw(Exporter);
 
@@ -13,11 +12,11 @@ Text::TNetstrings - Data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 0.1.0
+Version 1.0.1
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.0.0");
+use version 0.77; our $VERSION = version->declare("v1.0.1");
 
 =head1 SYNOPSIS
 
@@ -60,7 +59,7 @@ Encode a scalar, hash or array into TNetstring format.
 =cut
 
 sub encode_tnetstrings {
-	my ($data) = @_;
+	my $data = shift;
 	my ($encoded, $type);
 
 	if(ref($data) eq "ARRAY") {
@@ -90,7 +89,7 @@ sub encode_tnetstrings {
 	# between true/false and integers, strings, etc.  Boolean values
 	# will simply be represented as whatever the underlying type is
 	# (integer, string, undefined).
-	return sprintf("%d:%s%c", length($encoded), $encoded, ord($type));
+	return join('', length($encoded), ':', $encoded, $type);
 }
 
 =head2 decode_tnetstrings($string)
@@ -100,40 +99,40 @@ Decode TNetstring data into the appropriate scalar, hash or array.
 =cut
 
 sub decode_tnetstrings {
-	my ($encoded) = @_;
-	my ($decoded, $length, $data, $type, $rest);
+	my $encoded = shift;
 	return unless $encoded;
+	my ($decoded, $length, $data, $type, $rest);
 
-	($length, $rest) = split(':', $encoded, 2);
-	$length = int($length);
+	my $length_end = index($encoded, ":");
+	$length = substr($encoded, 0, $length_end);
 
-	$data = substr($rest, 0, $length);
-	$type = substr($rest, $length, 1);
-	croak("invalid type '$type'") unless $type =~ m/^[,#^!~}\]]$/;
-	$rest = substr($rest, $length + 1) if wantarray && length($rest) >= $length + 1;
+	my $offset = $length_end + 1;
+	$data = substr($encoded, $offset, $length);
+	$offset += $length;
+	$type = substr($encoded, $offset, 1);
 
 	for($type) {
-		/,/ and do {
+		"," eq $_ and do {
 			$decoded = $data;
 			last;
 		};
-		/#/ and do {
+		"#" eq $_ and do {
 			$decoded = int($data);
 			last;
 		};
-		/\^/ and do {
+		"^" eq $_ and do {
 			$decoded = $data;
 			last;
 		};
-		/!/ and do {
+		"!" eq $_ and do {
 			$decoded = $data eq 'true';
 			last;
 		};
-		/~/ and do {
+		"~" eq $_ and do {
 			$decoded = undef;
 			last;
 		};
-		/}/ and do {
+		"}" eq $_ and do {
 			$decoded = {};
 			my $ss = $data;
 			do {
@@ -144,7 +143,7 @@ sub decode_tnetstrings {
 			} while(defined($ss) && $ss ne '');
 			last;
 		};
-		/]/ and do {
+		"]" eq $_ and do {
 			$decoded = [];
 			my $ss = $data;
 			do {
@@ -157,7 +156,11 @@ sub decode_tnetstrings {
 		croak("type $type not supported");
 	}
 
-	return wantarray ? ($decoded, $rest) : $decoded;
+	if(wantarray()) {
+		$rest = substr($encoded, $offset + 1) if length($encoded) > $offset;
+		return ($decoded, $rest);
+	}
+	return $decoded;
 }
 
 =head1 AUTHOR
@@ -209,6 +212,23 @@ L<http://www.github.com/sebnow/text-tnetstrings-perl>
 
 =back
 
+=head1 CHANGES
+
+=head2 v1.0.1
+
+=over
+
+=item Performance improvements
+
+=back
+
+=head2 v1.0.0
+
+=over
+
+=item Initial release
+
+=back
 
 =head1 ACKNOWLEDGEMENTS
 

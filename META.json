@@ -35,7 +35,7 @@
    "provides" : {
       "Text::TNetstrings" : {
          "file" : "lib/Text/TNetstrings.pm",
-         "version" : "v1.0.0"
+         "version" : "v1.0.1"
       }
    },
    "release_status" : "stable",
@@ -44,5 +44,5 @@
          "http://opensource.org/licenses/mit-license.php"
       ]
    },
-   "version" : "v1.0.0"
+   "version" : "v1.0.1"
 }

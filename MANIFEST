@@ -1,10 +1,11 @@
+benchmark/dumper.pl
+benchmark/json.pl
+benchmark/types.pl
 Build.PL
-Changes
 lib/Text/TNetstrings.pm
 MANIFEST			This list of files
-META.json
-META.yml
 README.md
 t/decode.t
 t/encode.t
-Text-TNetstrings-v1.0.0.tar.gz
+META.yml
+META.json

@@ -13,6 +13,29 @@ Usage
 	my $data = encode_tnetstrings({"foo" => "bar"}) # => "12:3:foo,3:bar,}"
 	my $hash = decode_tnetstrings($data)            # => {"foo" => "bar"}
 
+Performance
+===========
+
+The JSON benchmark shows that TNetstrings is about twice as fast as the
+Pure-Perl JSON module (version 2.27105).
+
+
+	$ perl -Ilib benchmark/json.pl
+	               Rate    JSON::PP TNetstrings    JSON::XS
+	JSON::PP      700/s          --        -48%        -98%
+	TNetstrings  1359/s         94%          --        -95%
+	JSON::XS    29326/s       4091%       2058%          --
+
+Similarly the Pure-Perl version of Data::Dumper performs about twice as
+slow as TNetstrings.
+
+	$ perl -Ilib benchmark/dumper.pl
+	              Rate      Dumper TNetstrings
+	Dumper       700/s          --        -48%
+	TNetstrings 1355/s         93%          --
+
+The above benchmarks were performed on a dual core Intel Atom 330 @ 1.6GHz.
+
 
 Installation
 ============

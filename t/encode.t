@@ -58,7 +58,7 @@ BEGIN {
 }
 
 {
-	my $float = "3.14159265";
+	my $float = 3.14159265;
 	my $encoded = encode_tnetstrings($float);
 	my $given = qq(Given a float $float, when the float is encoded, );
 	isnt($encoded, undef, $given .
