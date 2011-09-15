@@ -1,9 +1,6 @@
 package Text::TNetstrings;
-
-use 5.010;
 use strict;
 use warnings;
-use Carp qw(croak);
 use base qw(Exporter);
 
 =head1 NAME
@@ -12,11 +9,11 @@ Text::TNetstrings - Data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 1.0.1
+Version 1.1.0
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.0.1");
+use version 0.77; our $VERSION = version->declare("v1.1.0");
 
 =head1 SYNOPSIS
 
@@ -33,11 +30,11 @@ JSON. See http://tnetstrings.org/ for more details.
 
 =over
 
-=item encode_tnetstrings($data)
+=item C<encode_tnetstrings($data)>
 
-=item decode_tnetstrings($data)
+=item C<decode_tnetstrings($data)>
 
-=item :all
+=item C<:all>
 
 The "all" tag exports all the above subroutines.
 
@@ -45,10 +42,59 @@ The "all" tag exports all the above subroutines.
 
 =cut
 
-our @EXPORT_OK = qw(encode_tnetstrings decode_tnetstrings);
+our @EXPORT_OK = qw(encode_tnetstrings decode_tnetstrings $Useperl);
 our %EXPORT_TAGS = (
 	"all" => \@EXPORT_OK,
 );
+
+=head1 ENVIRONMENT
+
+=over
+
+=item C<PERL_ONLY>
+
+=item C<TNETSTRINGS_PUREPERL>
+
+Can be set to a boolean value which controls whether the pure Perl
+implementation of C<Text::TNetstrings> is used. The C<Text::TNetstrings>
+module is a dual implementation, with all functionality written in both
+pure Perl and also in XS ('C'). By default, The XS version will be used
+whenever possible, as it is much faster. This option allows you to
+override the default behaviour.
+
+=item C<TNETSTRINGS_XS>
+
+Unless C<TNETSTRINGS_PUREPERL> or C<PERL_ONLY> is set, an attempt will
+be made to load the XS module. If it can not be loaded it will fail
+quietly and fall back to the pure Perl module. If C<TNETSTRINGS_XS> is
+set a warning will be issued if loading the XS module fails.
+
+=back
+
+=cut
+
+BEGIN {
+	my $xs = $ENV{"TNETSTRINGS_XS"} || !($ENV{"TNETSTRINGS_PUREPERL"} || $ENV{"PERL_ONLY"});
+	if($xs) {
+		if($ENV{"TNETSTRINGS_XS"}) {
+			require Text::TNetstrings::XS;
+			*encode_tnetstrings = \&Text::TNetstrings::XS::encode_tnetstrings;
+			*decode_tnetstrings = \&Text::TNetstrings::XS::decode_tnetstrings;
+		} else {
+			eval {
+				require Text::TNetstrings::XS;
+				*encode_tnetstrings = \&Text::TNetstrings::XS::encode_tnetstrings;
+				*decode_tnetstrings = \&Text::TNetstrings::XS::decode_tnetstrings;
+			};
+			$xs = 0 if $@;
+		}
+	}
+	if(!$xs) {
+		require Text::TNetstrings::PP;
+		*encode_tnetstrings = \&Text::TNetstrings::PP::encode_tnetstrings;
+		*decode_tnetstrings = \&Text::TNetstrings::PP::decode_tnetstrings;
+	}
+};
 
 =head1 SUBROUTINES/METHODS
 
@@ -56,112 +102,14 @@ our %EXPORT_TAGS = (
 
 Encode a scalar, hash or array into TNetstring format.
 
-=cut
-
-sub encode_tnetstrings {
-	my $data = shift;
-	my ($encoded, $type);
-
-	if(ref($data) eq "ARRAY") {
-		$encoded = join('', map {encode_tnetstrings($_)} @$data);
-		$type = ']';
-	} elsif(ref($data) eq "HASH") {
-		while(my ($key, $value) = each(%$data)) {
-			# Keys must be strings
-			$encoded .= encode_tnetstrings("" . $key);
-			$encoded .= encode_tnetstrings($value);
-		}
-		$type = '}';
-	} elsif(!defined($data)) {
-		$encoded = '';
-		$type = '~';
-	} elsif($data =~ /^([-+])?[0-9]*\.[0-9]+$/) {
-		$encoded = $data;
-		$type = '^';
-	} elsif($data =~ /^([-+])?[1-9][0-9]*$/) {
-		$encoded = $data;
-		$type = '#';
-	} else {
-		$encoded = $data;
-		$type = ',';
-	}
-	# Since there is no boolean type, it's impossible to distinguish
-	# between true/false and integers, strings, etc.  Boolean values
-	# will simply be represented as whatever the underlying type is
-	# (integer, string, undefined).
-	return join('', length($encoded), ':', $encoded, $type);
-}
-
 =head2 decode_tnetstrings($string)
 
 Decode TNetstring data into the appropriate scalar, hash or array.
 
+B<Note:> Due to Perl not having a boolean data type, booleans are
+decoded as integers (1/0).
+
 =cut
-
-sub decode_tnetstrings {
-	my $encoded = shift;
-	return unless $encoded;
-	my ($decoded, $length, $data, $type, $rest);
-
-	my $length_end = index($encoded, ":");
-	$length = substr($encoded, 0, $length_end);
-
-	my $offset = $length_end + 1;
-	$data = substr($encoded, $offset, $length);
-	$offset += $length;
-	$type = substr($encoded, $offset, 1);
-
-	for($type) {
-		"," eq $_ and do {
-			$decoded = $data;
-			last;
-		};
-		"#" eq $_ and do {
-			$decoded = int($data);
-			last;
-		};
-		"^" eq $_ and do {
-			$decoded = $data;
-			last;
-		};
-		"!" eq $_ and do {
-			$decoded = $data eq 'true';
-			last;
-		};
-		"~" eq $_ and do {
-			$decoded = undef;
-			last;
-		};
-		"}" eq $_ and do {
-			$decoded = {};
-			my $ss = $data;
-			do {
-				my ($x, $y);
-				($x, $ss) = decode_tnetstrings($ss);
-				($y, $ss) = decode_tnetstrings($ss) or croak("unbalanced hash");
-				$decoded->{$x} = $y;
-			} while(defined($ss) && $ss ne '');
-			last;
-		};
-		"]" eq $_ and do {
-			$decoded = [];
-			my $ss = $data;
-			do {
-				my $x;
-				($x, $ss) = decode_tnetstrings($ss);
-				push(@$decoded, $x);
-			} while(defined($ss) && $ss ne '');
-			last;
-		};
-		croak("type $type not supported");
-	}
-
-	if(wantarray()) {
-		$rest = substr($encoded, $offset + 1) if length($encoded) > $offset;
-		return ($decoded, $rest);
-	}
-	return $decoded;
-}
 
 =head1 AUTHOR
 
@@ -170,6 +118,10 @@ Sebastian Nowicki
 =head1 SEE ALSO
 
 L<http://tnetstrings.org/> for the TNetstrings specification.
+
+L<Text::TNetStrings::XS|Text::TNetstrings::XS> for better performance.
+
+L<Text::TNetStrings::PP|Text::TNetstrings::PP> if XS is not supported.
 
 =head1 BUGS
 
@@ -229,9 +181,6 @@ L<http://www.github.com/sebnow/text-tnetstrings-perl>
 =item Initial release
 
 =back
-
-=head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 

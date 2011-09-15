@@ -9,6 +9,12 @@ BEGIN {
 		or BAIL_OUT("unable to import Text::TNetstrings");
 };
 
+if(defined($INC{'Text/TNetstrings/XS.pm'})) {
+	diag("Using XS version of Text::TNetstrings");
+} else {
+	diag("Using pure-Perl version of Text::TNetstrings");
+}
+
 {
 	my $null = undef;
 	my $encoded = encode_tnetstrings($null);

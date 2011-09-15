@@ -3,8 +3,9 @@
 use strict;
 use warnings;
 use Benchmark qw(cmpthese timeit);
-use Data::Dumper;
-use Text::TNetstrings qw(:all);
+use Data::Dumper qw(Dumper DumperX);
+use Text::TNetstrings::PP;
+use Text::TNetstrings::XS;
 
 $Data::Dumper::Useperl = 1;
 
@@ -20,6 +21,8 @@ my $structure = {
 
 cmpthese(10000, {
 	'Dumper'      => sub {eval(Dumper($structure))},
-	'TNetstrings' => sub {decode_tnetstrings(encode_tnetstrings($structure))},
+	'DumperX'      => sub {eval(DumperX($structure))},
+	'TNetstrings::PP' => sub {Text::TNetstrings::PP::decode_tnetstrings(Text::TNetstrings::PP::encode_tnetstrings($structure))},
+	'TNetstrings::XS' => sub {Text::TNetstrings::XS::decode_tnetstrings(Text::TNetstrings::XS::encode_tnetstrings($structure))},
 });
 

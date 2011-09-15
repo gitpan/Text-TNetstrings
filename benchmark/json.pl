@@ -4,8 +4,11 @@ use strict;
 use warnings;
 use Benchmark qw(cmpthese timeit);
 use JSON::PP qw();
-use Text::TNetstrings qw(:all);
-eval {require JSON::XS};
+use Text::TNetstrings::PP qw(:all);
+eval {
+	require Text::TNetstrings::XS;
+	require JSON::XS;
+};
 
 my $structure = {
 	'hello' => 'world',
@@ -19,10 +22,15 @@ my $structure = {
 
 my %benchmarks = (
 	'JSON::PP' => timeit(10000, sub {JSON::PP::decode_json(JSON::PP::encode_json($structure))}),
-	'TNetstrings' => timeit(10000, sub {decode_tnetstrings(encode_tnetstrings($structure))}),
+	'TNetstrings::PP' => timeit(10000, sub {decode_tnetstrings(encode_tnetstrings($structure))}),
 );
 if(exists($INC{'JSON/XS.pm'})) {
 	$benchmarks{'JSON::XS'} = timeit(100000, sub {JSON::XS::decode_json(JSON::XS::encode_json($structure))});
+}
+if(exists($INC{'Text/TNetstrings/XS.pm'})) {
+	$benchmarks{'TNetstrings::XS'} = timeit(100000, sub {
+			Text::TNetstrings::XS::decode_tnetstrings(Text::TNetstrings::XS::encode_tnetstrings($structure));
+	});
 }
 
 cmpthese(\%benchmarks);

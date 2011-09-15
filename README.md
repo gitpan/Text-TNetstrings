@@ -17,22 +17,15 @@ Performance
 ===========
 
 The JSON benchmark shows that TNetstrings is about twice as fast as the
-Pure-Perl JSON module (version 2.27105).
-
+Pure-Perl JSON module (version 2.27105), and the XS version is ~15%
+slower than the JSON module.
 
 	$ perl -Ilib benchmark/json.pl
-	               Rate    JSON::PP TNetstrings    JSON::XS
-	JSON::PP      700/s          --        -48%        -98%
-	TNetstrings  1359/s         94%          --        -95%
-	JSON::XS    29326/s       4091%       2058%          --
-
-Similarly the Pure-Perl version of Data::Dumper performs about twice as
-slow as TNetstrings.
-
-	$ perl -Ilib benchmark/dumper.pl
-	              Rate      Dumper TNetstrings
-	Dumper       700/s          --        -48%
-	TNetstrings 1355/s         93%          --
+	                    Rate  JSON::PP TNetstrings::PP TNetstrings::XS  JSON::XS
+	JSON::PP           727/s        --            -47%            -97%      -97%
+	TNetstrings::PP   1366/s       88%              --            -94%      -95%
+	TNetstrings::XS  24814/s     3312%           1716%              --      -14%
+	JSON::XS         28736/s     3851%           2003%             16%        --
 
 The above benchmarks were performed on a dual core Intel Atom 330 @ 1.6GHz.
 

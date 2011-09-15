@@ -16,26 +16,27 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Test::More" : 0
+            "ExtUtils::CBuilder" : 0
          }
       },
       "configure" : {
          "requires" : {
-            "Module::Build" : 0,
-            "version" : 0
-         }
-      },
-      "runtime" : {
-         "requires" : {
-            "perl" : "5.006",
-            "version" : 0
+            "Module::Build" : "0.38"
          }
       }
    },
    "provides" : {
       "Text::TNetstrings" : {
          "file" : "lib/Text/TNetstrings.pm",
-         "version" : "v1.0.1"
+         "version" : "v1.1.0"
+      },
+      "Text::TNetstrings::PP" : {
+         "file" : "lib/Text/TNetstrings/PP.pm",
+         "version" : "v1.1.0"
+      },
+      "Text::TNetstrings::XS" : {
+         "file" : "lib/Text/TNetstrings/XS.pm",
+         "version" : "v1.1.0"
       }
    },
    "release_status" : "stable",
@@ -44,5 +45,5 @@
          "http://opensource.org/licenses/mit-license.php"
       ]
    },
-   "version" : "v1.0.1"
+   "version" : "v1.1.0"
 }
