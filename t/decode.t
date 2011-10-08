@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 20;
+use Test::More tests => 25;
 
 BEGIN {
 	use_ok("Text::TNetstrings", qw(:all))
@@ -39,6 +39,21 @@ if(defined($INC{'Text/TNetstrings/XS.pm'})) {
 		"then the decoded value should be a scalar");
 	is($decoded, "hello", $given .
 		"then the decoded value should be the string \"hello\"");
+}
+
+{
+	my $encoded = "6:he\0llo,";
+	$encoded =~ m/^(\d+):(.*)(.)$/;
+	my ($length, $data, $type) = ($1, $2, $3);
+	my $decoded = decode_tnetstrings($encoded);
+	my $given = "Given an encoded TNetstring, " .
+		"and the TNetstring contains the string, " .
+		"and the string contains a null byte, " .
+		"when the string is decoded, ";
+	is(ref($decoded), '', $given .
+		"then the decoded value should be a scalar");
+	is($decoded, $data, $given .
+		"then the null byte should not be processed in any special way");
 }
 
 {
@@ -151,5 +166,20 @@ if(defined($INC{'Text/TNetstrings/XS.pm'})) {
 		"then the decoded value should be a hash");
 	is_deeply($decoded, {"a" => 1, "b" => 2}, $given .
 		"then the decoded value should be the hash {a => 1, b => 2}");
+}
+
+{
+	my $encoded = "5:hello,other irrelevant text";
+	my ($decoded, $rest) = decode_tnetstrings($encoded);
+	my $given = "Given an encoded TNetstring, " .
+		"and the TNetstring contains the string \"hello\", " .
+		"and other data follows the TNetstring, " .
+		"when the string is decoded, ";
+	is(ref($decoded), '', $given .
+		"then the decoded value should be a scalar");
+	is($decoded, "hello", $given .
+		"then the decoded value should be the string \"hello\"");
+	is($rest, "other irrelevant text", $given .
+		"then the remaining data should be returned");
 }
 

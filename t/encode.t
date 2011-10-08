@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 25;
+use Test::More tests => 28;
 
 BEGIN {
 	use_ok("Text::TNetstrings", qw(:all))
@@ -45,6 +45,22 @@ if(defined($INC{'Text/TNetstrings/XS.pm'})) {
 		"then the data field should be the same as the string");
 	is($type, ',', $given .
 		"then the type indicator should be ','");
+}
+
+{
+	my $string = "hel\0lo";
+	my $encoded = encode_tnetstrings($string);
+	my $given = qq(Given a string "$string", ) .
+		"when the string is encoded, " .
+		"and the string contains a NULL byte, ";
+	isnt($encoded, undef, $given .
+		"then the result should be defined");
+	$encoded =~ m/^(\d+):(.*)(.)$/;
+	my ($length, $data, $type) = ($1, $2, $3);
+	is($length, length($string), $given .
+		"then the length should be " . length($string));
+	is($data, $string, $given .
+		"then the data field should be the same as the string");
 }
 
 {

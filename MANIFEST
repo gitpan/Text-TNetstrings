@@ -1,8 +1,10 @@
-benchmark/dumper.pl
-benchmark/json.pl
-benchmark/tnetstrings.pl
+benchmark/decode.pl
+benchmark/decode_type.pl
+benchmark/encode.pl
+benchmark/encode_bool.pl
 benchmark/types.pl
 Build.PL
+foo.pl
 lib/Text/TNetstrings.pm
 lib/Text/TNetstrings/PP.pm
 lib/Text/TNetstrings/XS.c
@@ -10,10 +12,8 @@ lib/Text/TNetstrings/XS.o
 lib/Text/TNetstrings/XS.pm
 lib/Text/TNetstrings/XS.xs
 MANIFEST			This list of files
-META.json
-META.yml
 README.md
 t/decode.t
 t/encode.t
-Text-TNetstrings-v1.1.0.tar.gz
-tnetstrings.pl
+META.yml
+META.json

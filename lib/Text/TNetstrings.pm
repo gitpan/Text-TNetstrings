@@ -9,11 +9,11 @@ Text::TNetstrings - Data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 1.1.0
+Version 1.1.1
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.1.0");
+use version 0.77; our $VERSION = version->declare("v1.1.1");
 
 =head1 SYNOPSIS
 
@@ -104,7 +104,10 @@ Encode a scalar, hash or array into TNetstring format.
 
 =head2 decode_tnetstrings($string)
 
-Decode TNetstring data into the appropriate scalar, hash or array.
+Decode TNetstring data into the appropriate scalar, hash or array. In
+array context the remainder of the string will also be returned, e.g.:
+
+	my ($data, $rest) = decode_tnetstrings("0:~foo"); #=> (undef, "foo")
 
 B<Note:> Due to Perl not having a boolean data type, booleans are
 decoded as integers (1/0).
@@ -165,6 +168,24 @@ L<http://www.github.com/sebnow/text-tnetstrings-perl>
 =back
 
 =head1 CHANGES
+
+=head2 v1.1.1
+
+=over
+
+=item Performance improvements
+
+=item Bug fixes for strings containing C<NULL> bytes
+
+=back
+
+=head2 v1.1.0
+
+=over
+
+=item XS module for improved performance
+
+=back
 
 =head2 v1.0.1
 

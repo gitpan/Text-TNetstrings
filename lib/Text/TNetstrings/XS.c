@@ -31,6 +31,10 @@ struct tn_buffer {
 	char *cursor;
 };
 
+static SV *tn_decode(char *const encoded, STRLEN length, char **rest);
+static SV *tn_decode_payload(char *const encoded, STRLEN length, enum tn_type type);
+static SV *tn_decode_array(char *const encoded, STRLEN length);
+static SV *tn_decode_hash(char *const encoded, STRLEN length);
 static void tn_encode(SV *data, struct tn_buffer *buf);
 static void tn_encode_array(SV *data, struct tn_buffer *buf);
 static void tn_encode_hash(SV *data, struct tn_buffer *buf);
@@ -71,18 +75,24 @@ tn_encode(SV *data, struct tn_buffer *buf)
 	}
 	/* Integer */
 	else if(SvIOK(data)) {
+		/* The evaluatioin order of arguments isn't defined, so
+		 * stringify before calling tn_buffer_puts(). */
+		SvPV_nolen(data);
 		tn_buffer_putc(buf, tn_type_integer);
-		tn_buffer_puts(buf, SvPV_nolen(data), strlen(SvPV_nolen(data)));
+		tn_buffer_puts(buf, SvPVX(data), SvCUR(data));
 	}
 	/* Floating point */
 	else if(SvNOK(data)) {
+		/* The evaluatioin order of arguments isn't defined, so
+		 * stringify before calling tn_buffer_puts(). */
+		SvPV_nolen(data);
 		tn_buffer_putc(buf, tn_type_float);
-		tn_buffer_puts(buf, SvPV_nolen(data), strlen(SvPV_nolen(data)));
+		tn_buffer_puts(buf, SvPVX(data), SvCUR(data));
 	}
 	/* String */
 	else if(SvPOK(data)) {
 		tn_buffer_putc(buf, tn_type_bytestring);
-		tn_buffer_puts(buf, SvPV_nolen(data), strlen(SvPV_nolen(data)));
+		tn_buffer_puts(buf, SvPVX(data), SvCUR(data));
 	}
 	/* Reference (Hash/Array) */
 	else if(SvROK(data)) {
@@ -136,112 +146,182 @@ tn_encode_hash(SV *data, struct tn_buffer *buf)
 	}
 }
 
-/* The tn_decode function will modify the input string to optimize
- * tokenization.
- *
- * The format of a TNetstring is <length>:<body><type_indicator>. To
- * avoid copying strings, the colon (':') delimiter and type indicator
- * are replaced with a NULL byte. This enables atoi(), strlen(), etc.
- * to work on the embedded strings.
- */
-static SV *
-tn_decode(char *encoded, char **rest)
+static char *
+tn_lex(char *const encoded, STRLEN length, STRLEN *plength, enum tn_type *type, char **rest)
 {
-	SV *decoded = NULL;;
-	STRLEN byte_length = 0;
-	STRLEN length = 0;
-	char *cursor = encoded;
-	char *end = NULL;
-	enum tn_type type;
+	char *payload;
+	assert(plength);
+	assert(type);
 
-	if(*cursor > '9' || '0' > *cursor) {
-		croak("expected number but got \"%s\"", cursor);
+	/* Parse the size prefix */
+	errno = 0;
+	*plength = strtol(encoded, &payload, 10);
+	if(errno == ERANGE) {
+		croak("absurdly large size prefix");
+	} else if(*plength == 0 && encoded == payload) {
+		croak("expected size prefix but got \"%s\"", payload);
+	} else if(*payload != ':') {
+		croak("expected ':' but got \"%s\"", payload);
+	}
+	payload++;
+	/* Check if string is truncated */
+	if(payload + *plength >= encoded + length) {
+		croak("expected at least %d bytes", *plength);
 	}
 
-	/* Find the end of the length field */
-	end = strchr(cursor, ':');
-	if(end == NULL) {
-		croak("expected ':'");
-	}
-	*end = '\0';
-	byte_length = atoi(cursor);
-	/* Find boundry of body */
-	cursor = end + 1;
-	length = strlen(cursor) - 1; /* Ignore type indicator */
-	if(byte_length > length) {
-		croak("expected %d bytes but got %d: \"%s\"", byte_length, length);
-	}
-	/* Find and terminate type indicator */
-	end = cursor + byte_length;
-	type = *end;
-	*end = '\0';
+	*type = payload[*plength];
+
 	if(rest != NULL) {
-		if(length > byte_length) {
-			*rest = end + 1;
+		if(encoded + length > payload + *plength + 1) {
+			*rest = payload + *plength + 1;
 		} else {
 			*rest = NULL;
 		}
 	}
 
+	return payload;
+}
+
+static SV *
+tn_decode(char *const encoded, STRLEN length, char **rest)
+{
+	char *payload;
+	STRLEN payload_length;
+	enum tn_type type;
+
+	payload = tn_lex(encoded, length, &payload_length, &type, rest);
+	return tn_decode_payload(payload, payload_length, type);
+}
+
+static SV *
+tn_decode_payload(char *const encoded, STRLEN length, enum tn_type type)
+{
+	SV *decoded = NULL;
+
 	/* Everything in between is the body */
 	switch(type) {
 		case tn_type_array:
-			decoded = newRV_noinc((SV *)newAV());
-			while(cursor != NULL && cursor <= end) {
-				SV *elem = tn_decode(cursor, &cursor);
-				if(elem != NULL) {
-					av_push((AV *)SvRV(decoded), elem);
-				} else {
-					croak("expected array element but got \"%s\"", cursor);
-				}
-			}
+			decoded = tn_decode_array(encoded, length);
 			break;
 		case tn_type_bool:
-			if(strcmp(cursor, "true") == 0) {
-				decoded = newSViv(1);
-			} else if(strcmp(cursor, "false") == 0) {
-				decoded = newSViv(0);
+			if(strncmp(encoded, "true", 4) == 0) {
+				decoded = &PL_sv_yes;
+			} else if(strncmp(encoded, "false", 5) == 0) {
+				decoded = &PL_sv_no;
 			} else {
-				croak("expected \"true\" or \"false\" but got \"%s\"", cursor);
+				croak("expected \"true\" or \"false\" but got \"%s\"", encoded);
 			}
 			break;
 		case tn_type_float:
-			decoded = newSVnv(atof(cursor));
+			decoded = newSVnv(atof(encoded));
 			break;
 		case tn_type_hash:
-			decoded = newRV_noinc((SV *)newHV()); // TODO
-			while(cursor != NULL && cursor <= end) {
-				SV *key = tn_decode(cursor, &cursor);
-				if(key == NULL) {
-					croak("expected hash key but got \"%s\"", cursor);
-				} else if(SvROK(key)) {
-					croak("hash keys must be strings");
-				}
-				SV *value = tn_decode(cursor, &cursor);
-				if(value == NULL) {
-					croak("expected hash value but got \"%s\"", cursor);
-				}
-				/* Hash takes ownership of value but not key. The value
-				 * refcount must be decremented if storing fails. The
-				 * key's refcount must always be decremented. */
-				if(!hv_store_ent((HV *)SvRV(decoded), key, value, 0)) {
-					SvREFCNT_dec(decoded);
-				}
-				SvREFCNT_dec(key);
-			}
+			decoded = tn_decode_hash(encoded, length);
 			break;
 		case tn_type_null:
 			decoded = &PL_sv_undef;
 			break;
 		case tn_type_integer:
-			decoded = newSViv(atoi(cursor));
+			decoded = newSViv(atoi(encoded));
 			break;
 		case tn_type_bytestring:
-			decoded = newSVpvn(cursor, end - cursor);
+			decoded = newSVpvn(encoded, length);
 			break;
 		default:
 			croak("invalid date type '%c'", type);
 	}
+	return decoded;
+}
+
+static char *
+tn_decode_string(char *const encoded, STRLEN length, STRLEN *strlength, char **rest)
+{
+	char *payload;
+	STRLEN payload_length;
+	enum tn_type type;
+
+	payload = tn_lex(encoded, length, strlength, &type, rest);
+	if(type != tn_type_bytestring) {
+		croak("expected string");
+	}
+	return payload;
+}
+
+static SV *
+tn_decode_array(char *const encoded, STRLEN length)
+{
+	char *cursor = encoded;
+	char *end = encoded + length;
+	char *rest = NULL;
+	SV *decoded = newRV_noinc((SV *)newAV());
+	AV *array = (AV *)SvRV(decoded);
+	SV *elem = NULL;
+
+	while(cursor <= end) {
+		elem = tn_decode(cursor, length, &rest);
+		if(elem != NULL) {
+			av_push(array, elem);
+		} else {
+			croak("expected array element but got \"%s\"", cursor);
+		}
+		if(rest != NULL) {
+			length = length - (rest - cursor);
+			cursor = rest;
+		} else {
+			break;
+		}
+
+		elem = NULL;
+	}
+
+	return decoded;
+}
+
+static SV *
+tn_decode_hash(char *const encoded, STRLEN length)
+{
+	char *cursor = encoded;
+	char *end = encoded + length;
+	char *rest = NULL;
+	char *key = NULL;
+	STRLEN key_length = 0;
+	SV *decoded = newRV_noinc((SV *)newHV());
+	HV *hash = (HV *)SvRV(decoded);
+	SV *value = NULL;
+
+	while(cursor <= end) {
+		key = tn_decode_string(cursor, length, &key_length, &rest);
+		if(key == NULL) {
+			croak("expected hash key but got \"%s\"", cursor);
+		}
+
+		if(rest != NULL) {
+			length = length - (rest - cursor);
+			cursor = rest;
+		} else {
+			croak("odd number of elements in hash");
+		}
+
+		value = tn_decode(cursor, length, &rest);
+		if(value == NULL) {
+			croak("expected hash value but got \"%s\"", cursor);
+		}
+		/* The value refcount must be decremented if storing fails. */
+		if(!hv_store(hash, key, (I32)key_length, value, 0)) {
+			SvREFCNT_dec(value);
+		}
+		if(rest != NULL) {
+			length = length - (rest - cursor);
+			cursor = rest;
+		} else {
+			break;
+		}
+
+		key = NULL;
+		value = NULL;
+		key_length = 0;
+	}
+
 	return decoded;
 }
 
@@ -345,7 +425,7 @@ tn_buffer_free(struct tn_buffer *buf)
 }
 
 /* XSUBS */
-#line 349 "lib/Text/TNetstrings/XS.c"
+#line 429 "lib/Text/TNetstrings/XS.c"
 #ifndef PERL_UNUSED_VAR
 #  define PERL_UNUSED_VAR(var) if (0) var = var
 #endif
@@ -397,7 +477,7 @@ S_croak_xs_usage(pTHX_ const CV *const cv, const char *const params)
 #define newXSproto_portable(name, c_impl, file, proto) (PL_Sv=(SV*)newXS(name, c_impl, file), sv_setpv(PL_Sv, proto), (CV*)PL_Sv)
 #endif /* !defined(newXS_flags) */
 
-#line 401 "lib/Text/TNetstrings/XS.c"
+#line 481 "lib/Text/TNetstrings/XS.c"
 
 XS(XS_Text__TNetstrings__XS_encode_tnetstrings); /* prototype to pass -Wmissing-prototypes */
 XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
@@ -411,12 +491,12 @@ XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
        croak_xs_usage(cv,  "data");
     {
 	SV *	data = ST(0);
-#line 345 "lib/Text/TNetstrings/XS.xs"
+#line 425 "lib/Text/TNetstrings/XS.xs"
 		struct tn_buffer buffer;
 		SV *encoded;
-#line 418 "lib/Text/TNetstrings/XS.c"
+#line 498 "lib/Text/TNetstrings/XS.c"
 	SV *	RETVAL;
-#line 348 "lib/Text/TNetstrings/XS.xs"
+#line 428 "lib/Text/TNetstrings/XS.xs"
 	{
 		tn_buffer_init(&buffer, INIT_SIZE);
 		tn_encode(data, &buffer);
@@ -424,7 +504,7 @@ XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
 		tn_buffer_free(&buffer);
 		RETVAL = encoded;
 	}
-#line 428 "lib/Text/TNetstrings/XS.c"
+#line 508 "lib/Text/TNetstrings/XS.c"
 	ST(0) = RETVAL;
 	sv_2mortal(ST(0));
     }
@@ -446,24 +526,18 @@ XS(XS_Text__TNetstrings__XS_decode_tnetstrings)
     SP -= items;
     {
 	SV *	encoded = ST(0);
-#line 362 "lib/Text/TNetstrings/XS.xs"
-		SV *sv = NULL;
+#line 442 "lib/Text/TNetstrings/XS.xs"
 		char *rest = NULL;
-#line 453 "lib/Text/TNetstrings/XS.c"
+#line 532 "lib/Text/TNetstrings/XS.c"
 	SV *	RETVAL;
-#line 365 "lib/Text/TNetstrings/XS.xs"
+#line 444 "lib/Text/TNetstrings/XS.xs"
 	{
-		/* tn_decode modifies the input string, so give it a /copy/ of
-		 * provided SV */
-		sv = newSVsv(encoded);
-		SvPOK_only(encoded);
-		XPUSHs(sv_2mortal(tn_decode(SvPV_nolen(sv), &rest)));
-		sv_free(sv);
+		XPUSHs(sv_2mortal(tn_decode(SvPV_nolen(encoded), SvCUR(encoded), &rest)));
 		if(rest != NULL) {
-			XPUSHs(sv_2mortal(newSVpvn(rest, strlen(rest))));
+			XPUSHs(sv_2mortal(newSVpvn(rest, SvCUR(encoded) - (rest - SvPV_nolen(encoded)))));
 		}
 	}
-#line 467 "lib/Text/TNetstrings/XS.c"
+#line 541 "lib/Text/TNetstrings/XS.c"
 	PUTBACK;
 	return;
     }
