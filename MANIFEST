@@ -12,8 +12,9 @@ lib/Text/TNetstrings/XS.o
 lib/Text/TNetstrings/XS.pm
 lib/Text/TNetstrings/XS.xs
 MANIFEST			This list of files
+META.json
+META.yml
 README.md
 t/decode.t
 t/encode.t
-META.yml
-META.json
+Text-TNetstrings-v1.1.1.tar.gz

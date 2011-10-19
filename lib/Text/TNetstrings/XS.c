@@ -73,6 +73,16 @@ tn_encode(SV *data, struct tn_buffer *buf)
 		tn_buffer_puts(buf, "0:~", 3);
 		return;
 	}
+	/* Boolean */
+	else if(sv_isobject(data) && sv_derived_from(data, "boolean")) {
+		tn_buffer_putc(buf, tn_type_bool);
+		if(SvTRUE(data)) {
+			tn_buffer_puts(buf, "4:true", 6);
+		} else {
+			tn_buffer_puts(buf, "5:false", 7);
+		}
+		return;
+	}
 	/* Integer */
 	else if(SvIOK(data)) {
 		/* The evaluatioin order of arguments isn't defined, so
@@ -425,7 +435,7 @@ tn_buffer_free(struct tn_buffer *buf)
 }
 
 /* XSUBS */
-#line 429 "lib/Text/TNetstrings/XS.c"
+#line 439 "lib/Text/TNetstrings/XS.c"
 #ifndef PERL_UNUSED_VAR
 #  define PERL_UNUSED_VAR(var) if (0) var = var
 #endif
@@ -477,7 +487,7 @@ S_croak_xs_usage(pTHX_ const CV *const cv, const char *const params)
 #define newXSproto_portable(name, c_impl, file, proto) (PL_Sv=(SV*)newXS(name, c_impl, file), sv_setpv(PL_Sv, proto), (CV*)PL_Sv)
 #endif /* !defined(newXS_flags) */
 
-#line 481 "lib/Text/TNetstrings/XS.c"
+#line 491 "lib/Text/TNetstrings/XS.c"
 
 XS(XS_Text__TNetstrings__XS_encode_tnetstrings); /* prototype to pass -Wmissing-prototypes */
 XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
@@ -491,12 +501,12 @@ XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
        croak_xs_usage(cv,  "data");
     {
 	SV *	data = ST(0);
-#line 425 "lib/Text/TNetstrings/XS.xs"
+#line 435 "lib/Text/TNetstrings/XS.xs"
 		struct tn_buffer buffer;
 		SV *encoded;
-#line 498 "lib/Text/TNetstrings/XS.c"
+#line 508 "lib/Text/TNetstrings/XS.c"
 	SV *	RETVAL;
-#line 428 "lib/Text/TNetstrings/XS.xs"
+#line 438 "lib/Text/TNetstrings/XS.xs"
 	{
 		tn_buffer_init(&buffer, INIT_SIZE);
 		tn_encode(data, &buffer);
@@ -504,7 +514,7 @@ XS(XS_Text__TNetstrings__XS_encode_tnetstrings)
 		tn_buffer_free(&buffer);
 		RETVAL = encoded;
 	}
-#line 508 "lib/Text/TNetstrings/XS.c"
+#line 518 "lib/Text/TNetstrings/XS.c"
 	ST(0) = RETVAL;
 	sv_2mortal(ST(0));
     }
@@ -526,18 +536,18 @@ XS(XS_Text__TNetstrings__XS_decode_tnetstrings)
     SP -= items;
     {
 	SV *	encoded = ST(0);
-#line 442 "lib/Text/TNetstrings/XS.xs"
+#line 452 "lib/Text/TNetstrings/XS.xs"
 		char *rest = NULL;
-#line 532 "lib/Text/TNetstrings/XS.c"
+#line 542 "lib/Text/TNetstrings/XS.c"
 	SV *	RETVAL;
-#line 444 "lib/Text/TNetstrings/XS.xs"
+#line 454 "lib/Text/TNetstrings/XS.xs"
 	{
 		XPUSHs(sv_2mortal(tn_decode(SvPV_nolen(encoded), SvCUR(encoded), &rest)));
 		if(rest != NULL) {
 			XPUSHs(sv_2mortal(newSVpvn(rest, SvCUR(encoded) - (rest - SvPV_nolen(encoded)))));
 		}
 	}
-#line 541 "lib/Text/TNetstrings/XS.c"
+#line 551 "lib/Text/TNetstrings/XS.c"
 	PUTBACK;
 	return;
     }

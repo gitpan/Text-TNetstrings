@@ -11,11 +11,11 @@ Text::TNetstrings::XS - Fast data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 1.1.1
+Version 1.2.0
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.1.1");
+use version 0.77; our $VERSION = version->declare("v1.2.0");
 
 =head1 SYNOPSIS
 

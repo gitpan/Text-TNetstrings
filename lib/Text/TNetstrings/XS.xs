@@ -64,6 +64,16 @@ tn_encode(SV *data, struct tn_buffer *buf)
 		tn_buffer_puts(buf, "0:~", 3);
 		return;
 	}
+	/* Boolean */
+	else if(sv_isobject(data) && sv_derived_from(data, "boolean")) {
+		tn_buffer_putc(buf, tn_type_bool);
+		if(SvTRUE(data)) {
+			tn_buffer_puts(buf, "4:true", 6);
+		} else {
+			tn_buffer_puts(buf, "5:false", 7);
+		}
+		return;
+	}
 	/* Integer */
 	else if(SvIOK(data)) {
 		/* The evaluatioin order of arguments isn't defined, so

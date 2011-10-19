@@ -9,11 +9,11 @@ Text::TNetstrings - Data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 1.1.1
+Version 1.2.0
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.1.1");
+use version 0.77; our $VERSION = version->declare("v1.2.0");
 
 =head1 SYNOPSIS
 
@@ -109,8 +109,47 @@ array context the remainder of the string will also be returned, e.g.:
 
 	my ($data, $rest) = decode_tnetstrings("0:~foo"); #=> (undef, "foo")
 
-B<Note:> Due to Perl not having a boolean data type, booleans are
-decoded as integers (1/0).
+=head1 MAPPING
+
+=head2 Perl -> TNetstrings
+
+=over
+
+=item ARRAY
+
+Perl array references become TNetstring lists.
+
+=item HASH
+
+Perl hash references become TNetstring dictionaries. The TNetstring
+specification does not dictate an ordering, thus Perl's pseudo-random
+ordering is used.
+
+=item Unblessed
+
+Other unblessed references are not allowed, and an exception will be
+thrown. This uncludes C<CODE>s, C<GLOB>s, etc.
+
+=item boolean::true, boolean::false
+
+These special values become TNetstring true and false values,
+respectively.
+
+=item Blessed Objects
+
+Blessed objects are not representable in TNetstrings, and thus an
+exception will be thrown.
+
+=item Scalars
+
+Due to Perl not having distinct string, floating point or fixed point
+integers, the encoded type is a best guest. Undefined scalars will be
+encoded as TNetstring nulls (c<0:~>), values which look like a floating
+point number are encoded as floats, values which look like a fixed point
+integer are encoded as integers, and everything else is encoded as
+a string (using stringification).
+
+=back
 
 =cut
 
@@ -168,6 +207,14 @@ L<http://www.github.com/sebnow/text-tnetstrings-perl>
 =back
 
 =head1 CHANGES
+
+=head2 v1.2.0
+
+=over
+
+=item Support for encoding L<boolean> objects.
+
+=back
 
 =head2 v1.1.1
 

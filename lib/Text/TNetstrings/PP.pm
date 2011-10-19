@@ -2,6 +2,7 @@ package Text::TNetstrings::PP;
 use strict;
 use warnings;
 use Carp qw(croak);
+use Scalar::Util qw(blessed);
 use base qw(Exporter);
 
 =head1 NAME
@@ -10,11 +11,11 @@ Text::TNetstrings::PP - Pure-Perl data serialization using typed netstrings.
 
 =head1 VERSION
 
-Version 1.1.1
+Version 1.2.0
 
 =cut
 
-use version 0.77; our $VERSION = version->declare("v1.1.1");
+use version 0.77; our $VERSION = version->declare("v1.2.0");
 
 =head1 SYNOPSIS
 
@@ -56,6 +57,9 @@ sub encode_tnetstrings {
 			$encoded .= encode_tnetstrings($value);
 		}
 		$type = '}';
+	} elsif(blessed($data) && $data->isa('boolean')) {
+		$encoded = $data ? 'true' : 'false';
+		$type = '!';
 	} elsif(!defined($data)) {
 		$encoded = '';
 		$type = '~';

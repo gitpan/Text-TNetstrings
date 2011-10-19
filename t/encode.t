@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 28;
+use Test::More tests => 32;
 
 BEGIN {
 	use_ok("Text::TNetstrings", qw(:all))
@@ -29,6 +29,25 @@ if(defined($INC{'Text/TNetstrings/XS.pm'})) {
 		"then the data field should be empty");
 	is($type, '~', $given .
 		"then the type indicator should be '~'");
+}
+
+SKIP: {
+	eval {require boolean};
+	skip "boolean is not installed", 4 if $@;
+
+	my $boolean = boolean::true();
+	my $encoded = encode_tnetstrings($boolean);
+	my $given = "Given a boolean value, when the boolean value is true and encoded, ";
+	isnt($encoded, undef, $given .
+		"then the result should be defined");
+	$encoded =~ m/^(\d+):(.*)(.)$/;
+	my ($length, $data, $type) = ($1, $2, $3);
+	is($length, 4, $given .
+		"then the length should be 4");
+	is($data, 'true', $given .
+		"then the data field should be \"true\"");
+	is($type, '!', $given .
+		"then the type indicator should be '!'");
 }
 
 {
